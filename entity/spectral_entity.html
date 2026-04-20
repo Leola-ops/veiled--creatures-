@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPECTRAL ENTITY</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  canvas { display: block; }
+  #ui {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  .btn {
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.55);
+    padding: 7px 18px;
+    font: 10px/1 'Courier New', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn:hover, .btn.active {
+    border-color: rgba(255,255,255,0.7);
+    color: #fff;
+  }
+  #label {
+    position: fixed;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font: 9px/1 'Courier New', monospace;
+    letter-spacing: 0.25em;
+    color: rgba(255,255,255,0.22);
+    text-transform: uppercase;
+    text-align: center;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="label" id="lbl">SPECTRAL ENTITY · <span id="modeName">WAVE FORM</span></div>
+<div id="ui">
+  <button class="btn active" onclick="setMode(0)">I — WAVE FORM</button>
+  <button class="btn" onclick="setMode(1)">II — RADIANT CORE</button>
+  <button class="btn" onclick="setMode(2)">III — LIVING GRID</button>
+  <button class="btn" onclick="setMode(3)">IV — FREQUENCY CHAOS</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+let t = 0;
+let mode = 0;
+let targetMode = 0;
+let transAlpha = 1; // 1 = current mode fully visible
+
+const modeNames = ['WAVE FORM', 'RADIANT CORE', 'LIVING GRID', 'FREQUENCY CHAOS'];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2; cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function setMode(m) {
+  document.querySelectorAll('.btn').forEach((b,i) => b.classList.toggle('active', i===m));
+  document.getElementById('modeName').textContent = modeNames[m];
+  targetMode = m;
+  mode = m;
+}
+
+// ─── Palette helpers ───────────────────────────────────────────────
+function hsl(h, s, l, a=1) {
+  return `hsla(${h%360},${s}%,${l}%,${a})`;
+}
+
+function spectralGrad(x0,y0,x1,y1, offset=0) {
+  const g = ctx.createLinearGradient(x0,y0,x1,y1);
+  g.addColorStop(0,   hsl((t*18+offset)%360,     100, 65, 0.85));
+  g.addColorStop(0.25,hsl((t*18+offset+80)%360,  100, 60, 0.8));
+  g.addColorStop(0.5, hsl((t*18+offset+160)%360, 100, 70, 0.85));
+  g.addColorStop(0.75,hsl((t*18+offset+240)%360, 100, 60, 0.8));
+  g.addColorStop(1,   hsl((t*18+offset+320)%360, 100, 65, 0.85));
+  return g;
+}
+
+// ─── MODE 0 : Intersecting Sine Wave Entity ────────────────────────
+function drawWaveForm() {
+  const bands = 28;
+  const amp = Math.min(W,H) * 0.32;
+
+  for (let b = 0; b < bands; b++) {
+    const phase  = (b / bands) * Math.PI * 2;
+    const freq   = 2.5 + b * 0.18;
+    const yBase  = cy;
+    const thick  = 1.2 + Math.sin(t * 0.7 + b) * 0.6;
+    const hueOff = b * (360 / bands);
+    const alpha  = 0.55 + 0.35 * Math.sin(t * 0.5 + phase);
+
+    ctx.beginPath();
+    ctx.lineWidth = thick;
+    ctx.strokeStyle = hsl((t * 22 + hueOff) % 360, 100, 65, alpha);
+
+    for (let x = 0; x <= W; x += 2) {
+      const nx = (x - cx) / (W * 0.45);
+      const distort = Math.sin(nx * 3.1 + t * 0.9 + phase * 1.3) * 0.18;
+      const y = yBase +
+        Math.sin(nx * freq * Math.PI + t * 1.1 + phase) * amp * (0.3 + 0.7 * Math.exp(-nx*nx*1.4)) +
+        Math.sin(nx * freq * 1.7 * Math.PI + t * 0.7 + phase * 2.1) * amp * 0.22 * (1 + distort);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Vertical crossing waves
+  for (let b = 0; b < 14; b++) {
+    const phase = (b / 14) * Math.PI * 2 + Math.PI * 0.5;
+    const freq  = 2 + b * 0.28;
+    const amp2  = Math.min(W,H) * 0.28;
+    const hueOff = b * (360 / 14) + 180;
+    const alpha = 0.3 + 0.25 * Math.cos(t * 0.6 + phase);
+
+    ctx.beginPath();
+    ctx.lineWidth = 0.9;
+    ctx.strokeStyle = hsl((t * 15 + hueOff) % 360, 100, 68, alpha);
+
+    for (let y = 0; y <= H; y += 2) {
+      const ny = (y - cy) / (H * 0.45);
+      const x = cx +
+        Math.sin(ny * freq * Math.PI + t * 0.9 + phase) * amp2 * Math.exp(-ny*ny*1.2) +
+        Math.cos(ny * freq * 1.5 * Math.PI + t * 0.6 + phase * 1.8) * amp2 * 0.2;
+      if (y === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Glowing interference corona
+  const R = Math.min(W,H) * 0.38;
+  const grd = ctx.createRadialGradient(cx,cy,0, cx,cy,R);
+  grd.addColorStop(0,   hsl((t*25)%360, 100, 80, 0.12));
+  grd.addColorStop(0.4, hsl((t*25+90)%360, 100, 65, 0.06));
+  grd.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ─── MODE 1 : Radiant Core ─────────────────────────────────────────
+function drawRadiantCore() {
+  const rings = 60;
+  const maxR = Math.min(W,H) * 0.48;
+
+  for (let r = 0; r < rings; r++) {
+    const norm = r / rings;
+    const radius = norm * maxR;
+    const warp = 0.06 * Math.sin(norm * 14 + t * 1.4) * radius;
+    const actualR = radius + warp;
+    const lineW = (1 - norm) * 2.8 + 0.3;
+    const hue = (t * 20 + norm * 280) % 360;
+    const alpha = (1 - norm * 0.7) * (0.55 + 0.35 * Math.sin(t * 2 + norm * 8));
+
+    ctx.beginPath();
+    // Draw warped ring as polyline
+    const pts = 180;
+    for (let i = 0; i <= pts; i++) {
+      const angle = (i / pts) * Math.PI * 2;
+      const rr = actualR + Math.sin(angle * 7 + t * 0.8 + norm * 3) * actualR * 0.04 +
+                           Math.sin(angle * 13 - t * 1.2 + norm * 5) * actualR * 0.02;
+      const x = cx + Math.cos(angle) * rr;
+      const y = cy + Math.sin(angle) * rr;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.lineWidth = lineW;
+    ctx.strokeStyle = hsl(hue, 100, 65, alpha);
+    ctx.stroke();
+  }
+
+  // Radial spokes of energy
+  const spokes = 36;
+  for (let s = 0; s < spokes; s++) {
+    const baseAngle = (s / spokes) * Math.PI * 2 + t * 0.15;
+    const hue = (t * 18 + s * (360/spokes)) % 360;
+    const alpha = 0.3 + 0.5 * Math.abs(Math.sin(t * 0.8 + s * 0.6));
+
+    ctx.beginPath();
+    const innerR = maxR * 0.05;
+    const outerR = maxR * (0.6 + 0.35 * Math.abs(Math.sin(t * 0.6 + s)));
+    for (let d = 0; d <= 1; d += 0.015) {
+      const r2 = innerR + d * (outerR - innerR);
+      const wobble = Math.sin(d * 18 + t * 2.2 + s) * r2 * 0.035;
+      const ang = baseAngle + wobble / r2;
+      const x = cx + Math.cos(ang) * r2;
+      const y = cy + Math.sin(ang) * r2;
+      if (d === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.lineWidth = 0.8 + 1.2 * Math.abs(Math.sin(t*0.5+s));
+    ctx.strokeStyle = hsl(hue, 100, 70, alpha);
+    ctx.stroke();
+  }
+
+  // Bright core burst
+  const coreGrd = ctx.createRadialGradient(cx,cy,0, cx,cy, maxR*0.18);
+  coreGrd.addColorStop(0, hsl((t*30)%360, 100, 92, 0.9));
+  coreGrd.addColorStop(0.4, hsl((t*30+60)%360, 100, 75, 0.4));
+  coreGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = coreGrd;
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxR*0.18, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ─── MODE 2 : Living Interference Grid ────────────────────────────
+function drawLivingGrid() {
+  const cols = 55, rows = 38;
+  const cellW = W / cols, cellH = H / rows;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = col * cellW + cellW/2;
+      const y = row * cellH + cellH/2;
+      const dx = (x - cx) / (W * 0.5);
+      const dy = (y - cy) / (H * 0.5);
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const angle = Math.atan2(dy, dx);
+
+      // Interference: two wave sources
+      const w1 = Math.sin(dist * 9 - t * 2.0 + angle * 2);
+      const w2 = Math.sin(dist * 6 + t * 1.5 - angle * 1.5);
+      const w3 = Math.sin(dx * 7 + t * 1.2) * Math.cos(dy * 7 - t * 0.9);
+      const interference = (w1 + w2 + w3) / 3;
+
+      const hue = (t * 20 + interference * 120 + dist * 60) % 360;
+      const brightness = 45 + interference * 30;
+      const alpha = 0.15 + 0.7 * Math.abs(interference);
+      const size = (cellW * 0.38) * (0.4 + 0.8 * Math.abs(interference));
+
+      // Draw node
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fillStyle = hsl(hue, 100, brightness, alpha * 0.5);
+      ctx.fill();
+
+      // Connect to right neighbor
+      if (col < cols - 1) {
+        const nx = x + cellW;
+        const ndx = (nx - cx) / (W * 0.5);
+        const ni = (Math.sin(Math.sqrt(ndx*ndx+dy*dy)*9-t*2+Math.atan2(dy,ndx)*2)+
+                    Math.sin(Math.sqrt(ndx*ndx+dy*dy)*6+t*1.5-Math.atan2(dy,ndx)*1.5)+
+                    Math.sin(ndx*7+t*1.2)*Math.cos(dy*7-t*0.9)) / 3;
+        const edgeAlpha = (Math.abs(interference) + Math.abs(ni)) * 0.25;
+        if (edgeAlpha > 0.05) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(nx, y);
+          ctx.lineWidth = 0.5 + edgeAlpha;
+          ctx.strokeStyle = hsl((hue+20)%360, 100, 65, edgeAlpha);
+          ctx.stroke();
+        }
+      }
+      // Connect to bottom neighbor
+      if (row < rows - 1) {
+        const ny = y + cellH;
+        const ndy = (ny - cy) / (H * 0.5);
+        const ni = (Math.sin(Math.sqrt(dx*dx+ndy*ndy)*9-t*2+Math.atan2(ndy,dx)*2)+
+                    Math.sin(Math.sqrt(dx*dx+ndy*ndy)*6+t*1.5-Math.atan2(ndy,dx)*1.5)+
+                    Math.sin(dx*7+t*1.2)*Math.cos(ndy*7-t*0.9)) / 3;
+        const edgeAlpha = (Math.abs(interference) + Math.abs(ni)) * 0.25;
+        if (edgeAlpha > 0.05) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, ny);
+          ctx.lineWidth = 0.5 + edgeAlpha;
+          ctx.strokeStyle = hsl((hue+40)%360, 100, 65, edgeAlpha);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Overlay flowing sine wave bands on top
+  for (let b = 0; b < 10; b++) {
+    const phase = (b/10)*Math.PI*2;
+    const hue = (t*15 + b*36) % 360;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 3) {
+      const nx = (x-cx)/(W*0.5);
+      const y = cy + Math.sin(nx*3+t*1.1+phase)*H*0.22*Math.exp(-nx*nx*0.5);
+      if (x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = hsl(hue,100,70,0.22);
+    ctx.stroke();
+  }
+}
+
+// ─── MODE 3 : Frequency Chaos ──────────────────────────────────────
+function drawFrequencyChaos() {
+  const signals = 7;
+
+  for (let s = 0; s < signals; s++) {
+    const phase   = s * (Math.PI * 2 / signals);
+    const freqX   = 1.5 + s * 0.55 + Math.sin(t * 0.3 + s) * 0.4;
+    const freqY   = 1.8 + s * 0.38 + Math.cos(t * 0.25 + s) * 0.3;
+    const ampX    = (W * 0.38) * (0.6 + 0.4 * Math.abs(Math.sin(t * 0.4 + s)));
+    const ampY    = (H * 0.38) * (0.6 + 0.4 * Math.abs(Math.cos(t * 0.35 + s)));
+    const hueBase = (t * 25 + s * (360 / signals)) % 360;
+
+    // Lissajous-ish chaotic path
+    ctx.beginPath();
+    const steps = 700;
+    for (let i = 0; i <= steps; i++) {
+      const p = (i / steps) * Math.PI * 2 * 3; // 3 loops
+      const noise1 = Math.sin(p * 7.3 + t * 1.7 + phase) * 0.12;
+      const noise2 = Math.cos(p * 5.1 - t * 1.3 + phase * 1.4) * 0.09;
+      const x = cx + Math.cos(p * freqX + phase + t * 0.2) * ampX * (1 + noise1);
+      const y = cy + Math.sin(p * freqY + phase * 1.3 + t * 0.15) * ampY * (1 + noise2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    const prog = (t * 0.1 + s * 0.15) % 1;
+    const g = spectralGrad(cx-ampX, cy, cx+ampX, cy, s * 51);
+    ctx.lineWidth = 0.7 + 1.8 * Math.abs(Math.sin(t * 0.5 + s));
+    ctx.strokeStyle = g;
+    ctx.globalAlpha = 0.5 + 0.35 * Math.abs(Math.sin(t * 0.6 + s));
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Sharp collision bursts — random sparks near center
+  for (let i = 0; i < 35; i++) {
+    const seed  = i * 137.508 + Math.floor(t * 0.8) * 59;
+    const angle = (seed % (Math.PI * 2));
+    const dist  = 30 + (seed % 200) * (0.5 + 0.5 * Math.sin(t * 0.9 + i));
+    const x = cx + Math.cos(angle + t * 0.05) * dist;
+    const y = cy + Math.sin(angle * 1.618 + t * 0.07) * dist;
+    const r = 1 + Math.abs(Math.sin(t * 2.5 + i)) * 5;
+    const hue = (t * 30 + i * 19) % 360;
+    const g2 = ctx.createRadialGradient(x,y,0,x,y,r*2);
+    g2.addColorStop(0, hsl(hue,100,90,0.9));
+    g2.addColorStop(1, hsl((hue+60)%360,100,65,0));
+    ctx.fillStyle = g2;
+    ctx.beginPath();
+    ctx.arc(x,y,r*2,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Clashing horizontal/vertical interference
+  for (let b = 0; b < 12; b++) {
+    const phase = b * 0.55;
+    const hue = (t*18 + b*30) % 360;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 3) {
+      const nx = (x-cx)/(W*0.5);
+      const y = cy +
+        Math.sin(nx*4.3+t*1.8+phase)*H*0.19*(1+0.4*Math.sin(t*2.1+b)) +
+        Math.sin(nx*9.7-t*1.3+phase*2)*H*0.07;
+      if (x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = hsl(hue, 100, 68, 0.28 + 0.2*Math.abs(Math.sin(t*0.7+b)));
+    ctx.stroke();
+  }
+}
+
+// ─── Main render loop ──────────────────────────────────────────────
+function render() {
+  // Fade trail (keep motion blur / afterglow)
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(0, 0, W, H);
+
+  t += 0.012;
+
+  switch (mode) {
+    case 0: drawWaveForm();       break;
+    case 1: drawRadiantCore();    break;
+    case 2: drawLivingGrid();     break;
+    case 3: drawFrequencyChaos(); break;
+  }
+
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>
